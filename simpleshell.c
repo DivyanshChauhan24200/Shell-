@@ -150,3 +150,38 @@ int main() {
         if (arg_count == 0) {  //  if input was empty or user just press enter, restart loop.
             continue;
         }
+char **command_array[MAX_command_array]; //  Check for pipes and split into command array separately.
+        int num_command_array = parse_pipes(args, command_array);  // total number of commands that user want to execute using pipes.
+        // Handle the history sepaartelty.
+        if (num_command_array == 1 && strcmp(args[0], "history") == 0) {
+            for (int i = 0; i < history_count; i++) {
+                printf("%d: %s\n", i + 1, history_log[i].command);
+            }
+            continue;
+        }
+        // record the command string in history array and start time of that command.
+        if (history_count < MAX_HISTORY) {
+            strncpy(history_log[history_count].command, history_line, MAX_LINE);
+            history_log[history_count].start_time = time(NULL);
+        }
+        
+        pid_t pids[num_command_array];
+        if (num_command_array == 1) {
+            launch(args, &pids[0]);  // start execution using launch function.
+        } else {
+            execute_pipeline(command_array, num_command_array, pids); // if commands are more means pipe is there so start ececution of pipeline function.
+        }
+        
+        for(int i = 0; i < num_command_array; i++) {
+            waitpid(pids[i], NULL, 0); //wait for all child to complete the process.
+        }
+        // History is updated with PID, duration and increamenet the history count.
+        if (history_count < MAX_HISTORY) {
+            history_log[history_count].pid = pids[num_command_array - 1];
+            history_log[history_count].duration = difftime(time(NULL), history_log[history_count].start_time);
+            history_count++;
+        }
+    }
+
+    return 0;
+}
