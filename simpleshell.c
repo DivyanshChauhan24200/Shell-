@@ -116,4 +116,37 @@ void execute_pipeline(char **command_array[], int num_command_array, pid_t pids[
         }
     } 
 }
+int main() {
+    struct sigaction sa;  // setup the termination handler for crt +c by telling os to handle it our own way.
+    sa.sa_handler = termination_handler; 
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
 
+    char *args[MAX_ARGS];
+    char line[MAX_LINE];
+    // infinte loop that keeps the shell running till we get a signal to stop/terminated.
+
+    while (1) {
+        printf("SimpleShell> ");
+        if (fgets(line, sizeof(line), stdin) == NULL) { // read user input from terminal.
+            printf("\nExiting SimpleShell.\n");
+            break;
+        }
+        
+        char history_line[MAX_LINE];  // define history log in main to store commands.
+        strncpy(history_line, line, MAX_LINE);
+        history_line[strcspn(history_line, "\n")] = 0;
+
+        line[strcspn(line, "\n")] = 0; // remove new line for parsing
+ 
+        int arg_count = 0; // make the command into an array of args.
+        char *command = strtok(line, " \t\r\n\a");
+        while (command != NULL && arg_count < MAX_ARGS - 1) {
+            args[arg_count++] = command;
+            command = strtok(NULL, " \t\r\n\a");
+        }
+        args[arg_count] = NULL;
+        
+        if (arg_count == 0) {  //  if input was empty or user just press enter, restart loop.
+            continue;
+        }
