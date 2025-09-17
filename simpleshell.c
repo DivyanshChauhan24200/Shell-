@@ -58,3 +58,62 @@ void termination_handler(int signum) {  // handling signal
         exit(0); // terminate the shell 
     } 
 }
+int parse_pipes(char **args, char **command_array[]) {
+    int command_count = 0;  // used to stores how many commands we have to execute using pipes.
+    command_array[command_count++] = args; // the first command always starts at the begining of the list.
+
+
+    for (int i = 0; args[i] != NULL; i++) { // iterates through all arguments to find pipe symbol.
+        if (strcmp(args[i], "|") == 0) { 
+            args[i] = NULL; // when a pipe is found, replace it with NULL, means marking this as a end of the command
+
+            command_array[command_count++] = &args[i + 1]; // assign the next command after the pipe was found 
+        }
+    }
+    command_array[command_count] = NULL; // end the list of commands with NULL.
+    return command_count;  // returns the total number of commands found which user want to execute using pipes.
+}
+
+void execute_pipeline(char **command_array[], int num_command_array, pid_t pids[]) {
+    int fd[2];   // file descriptor of size 2
+    int input_fd = STDIN_FILENO;  //this variable holds the input source for the current command in the loop, it starts as the keyboards press.
+    
+    for (int i = 0; i < num_command_array; i++) {  // iterates through all commands in array of commands using for loop.
+        if (i < num_command_array - 1) { // check if we are not at last command.
+            if (pipe(fd) < 0) {
+                perror("SimpleShell: Pipe error");
+                return;
+            }
+        }
+        if ((pids[i] = fork()) < 0) {
+            perror("SimpleShell: Fork error; something bad happen");
+            return;
+        }
+
+        if (pids[i] == 0) { // Child process logic is INSIDE the loop
+            if (input_fd != STDIN_FILENO) { // check wether it is a first process.
+                dup2(input_fd, STDIN_FILENO); // if not a first process read from prvious pipe.
+                close(input_fd);
+            }
+            if (i < num_command_array - 1) { // if it is not the last command
+                dup2(fd[1], STDOUT_FILENO); // pass the output to a new pipe 
+                close(fd[0]);
+                close(fd[1]);
+            }
+            if (execvp(command_array[i][0], command_array[i]) < 0) {  // execute the command
+                perror("SimpleShell : Command executable does not exist in bin");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // Parent process logic is ALSO INSIDE the loop
+        if (input_fd != STDIN_FILENO) { //close the read end of prvious used pipe.
+            close(input_fd);
+        }
+        if (i < num_command_array - 1) {  
+            close(fd[1]); // close the write end of new pipe since it is already read from prvious pipe and write it.
+            input_fd = fd[0];  // save the read pipe end for the next loop.
+        }
+    } 
+}
+
