@@ -38,3 +38,23 @@ void launch(char **args, pid_t *child_pid) {
 
     }
 }
+void termination_handler(int signum) {  // handling signal 
+    if (signum == SIGINT) {  // if signal is crt+c means to terminate it so we want it to handle it own.
+        char buffer[256]; // a tempporaray string for formatting.
+        write(STDOUT_FILENO, "\nShell terminating. Command statistics:\n", 40);
+        
+        for (int i = 0; i < history_count; i++) {  // loops through every command which we have in history log.
+             char *time_str = ctime(&history_log[i].start_time);
+            time_str[strcspn(time_str, "\n")] = 0;
+            int len = snprintf(buffer, sizeof(buffer),              // snprintf "prints" a formatted string into the 'buffer' variable.
+                             "  - PID: %d, Start: %s, Duration: %.2f sec, Command: [%s]\n",
+                             history_log[i].pid,
+                             time_str,
+                             //history_log[i].start_time,
+                             history_log[i].duration,
+                             history_log[i].command);
+            write(STDOUT_FILENO, buffer, len);  // write the content of the buffer to the screen.
+        }
+        exit(0); // terminate the shell 
+    } 
+}
